@@ -23,6 +23,17 @@ func createClient(indexName string) *Client {
 		host = value
 	}
 	return NewClient(host, indexName)
+
+}
+
+func createClientFromPool(indexName string) *Client {
+	value, exists := os.LookupEnv("REDISEARCH_TEST_HOST")
+	host := "localhost:6379"
+	if exists && value != "" {
+		host = value
+	}
+	pool := NewSingleHostPool(host)
+	return NewClientFromPool(pool, indexName)
 }
 
 // Game struct which contains a Asin, a Description, a Title, a Price, and a list of categories
@@ -109,6 +120,22 @@ func TestAggregateGroupBy(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 5, count)
 }
+
+func TestAggregateGroupBy2(t *testing.T) {
+	Init()
+	c := createClientFromPool("docs-games-idx1")
+
+	q1 := NewAggregateQuery().
+		GroupBy(*NewGroupBy().AddFields("@brand").
+			Reduce(*NewReducerAlias(GroupByReducerCount, []string{}, "count"))).
+		SortBy([]SortingKey{*NewSortingKeyDir("@count", false)}).
+		Limit(0, 5)
+
+	_, count, err := c.Aggregate(q1)
+	assert.Nil(t, err)
+	assert.Equal(t, 5, count)
+}
+
 
 func TestAggregateMinMax(t *testing.T) {
 	Init()
